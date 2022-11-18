@@ -1,0 +1,53 @@
+variables:
+- name: name
+  value: System.Debug
+- name: value
+  value: true
+trigger:
+  enabled: false
+stages:
+- stage: Build
+  displayName: Build Node
+  jobs:
+  - job: Install
+    displayName: Install and build
+    pool:
+      vmImage: windows-latest
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSource: 'spec'
+        versionSpec: '10.x'
+      displayName: Install node
+    - task: Npm@1
+      inputs:
+        command: 'install'
+      displayName: Install dependencies
+    - task: Npm@1
+      displayName: Update build version
+      inputs:
+        command: 'custom'
+        customCommand: '--no-git-tag-version version 0.$(Build.BuildNumber)'
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+        replaceExistingArchive: true
+      displayName: Pack code
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+        artifact: 'drop'
+        publishLocation: 'pipeline'
+      displayName: Publish artifact
+    - task: AzureRmWebAppDeployment@4
+      inputs:
+        ConnectionType: 'AzureRM'
+        azureSubscription: 'Your_Sub'
+        appType: 'webAppLinux'
+        WebAppName: 'Your_WebApp'
+        packageForLinux: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+        StartupCommand: 'npm run start'
+
